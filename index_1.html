@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuwan Hardware &mdash; POS System</title>
+
+<!-- Tailwind (Play CDN). Runs fully client-side once loaded; all app data/logic below needs no network at all. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          gold: { 50:'#FBF6E9',100:'#F6ECC9',200:'#EEDA98',300:'#E4C466',400:'#D9AE3F',500:'#C9992B',600:'#A97D1F',700:'#87611A',800:'#6B4B16',900:'#4A3410' },
+          brass: { 50:'#FFFCF2',100:'#FFF6DA',200:'#FEE9A8',300:'#FDD86B',400:'#FBC53A',500:'#F2B824',600:'#CB9314',700:'#9C6F0F',800:'#6E4E0B',900:'#463107' },
+          ink: { 50:'#F7F5F0',100:'#EDE8DC',200:'#D8CFB9',300:'#B7A97F',400:'#8C7F55',500:'#5E5334',600:'#463C22',700:'#332B17',800:'#241D0F',900:'#17130A' }
+        },
+        fontFamily: {
+          display: ['Georgia','"Times New Roman"','serif'],
+          body: ['-apple-system','Segoe UI','Roboto','Helvetica','Arial','sans-serif']
+        },
+        boxShadow: {
+          glass: '0 8px 32px 0 rgba(90,70,10,0.15)'
+        }
+      }
+    }
+  }
+</script>
+<style>
+  /* Minimal non-utility CSS: only what Tailwind's utility classes truly cannot express (scrollbars, print rules, keyframes). */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#D9AE3F;border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .animate-toastIn{animation:toastIn .25s ease-out}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .animate-fadeIn{animation:fadeIn .2s ease-out}
+  @keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .animate-popIn{animation:popIn .18s ease-out}
+  @media print{
+    body *{visibility:hidden}
+    #printArea, #printArea *{visibility:visible}
+    #printArea{position:absolute;top:0;left:0;width:100%}
+    .no-print{display:none!important}
+  }
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{margin-left:4px}
+</style>
+</head>
+
+<body class="font-body bg-gold-50 text-ink-800 dark:bg-ink-900 dark:text-gold-50 transition-colors duration-300">
+
+<div id="app" class="min-h-screen flex flex-col md:flex-row">
+
+  <!-- ============================= SIDEBAR NAV ============================= -->
+  <aside class="no-print md:w-60 w-full md:h-screen md:sticky md:top-0 bg-gradient-to-b from-ink-900 to-ink-800 text-gold-50 flex md:flex-col z-30 shadow-glass">
+    <div class="hidden md:flex flex-col items-center gap-2 py-6 border-b border-brass-500/20">
+      <div id="sidebarLogo" class="w-14 h-14 rounded-2xl bg-brass-500 flex items-center justify-center font-display text-2xl font-bold text-ink-900 shadow-glass overflow-hidden"></div>
+      <div class="text-center leading-tight">
+        <p id="sidebarCompanyName" class="font-display font-bold text-brass-300 text-lg"></p>
+        <p class="text-[10px] text-gold-100/60 tracking-widest uppercase">Point of Sale</p>
+      </div>
+    </div>
+    <nav class="flex md:flex-col flex-1 md:py-4 overflow-x-auto md:overflow-visible">
+      <button data-view="dashboard" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">📊 <span class="hidden sm:inline">Dashboard</span></button>
+      <button data-view="pos" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">🧾 <span class="hidden sm:inline">POS Billing</span></button>
+      <button data-view="products" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">📦 <span class="hidden sm:inline">Products</span></button>
+      <button data-view="sales" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">🕘 <span class="hidden sm:inline">Sales History</span></button>
+      <button data-view="reports" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">📈 <span class="hidden sm:inline">Reports</span></button>
+      <button data-view="settings" class="nav-btn flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:mx-3 md:rounded-xl hover:bg-brass-500/15 transition text-sm font-medium whitespace-nowrap">⚙️ <span class="hidden sm:inline">Settings</span></button>
+    </nav>
+    <div class="hidden md:block p-4 border-t border-brass-500/20 text-[11px] text-gold-100/50">
+      <button id="themeToggleBtn" class="w-full py-2 rounded-lg bg-brass-500/10 hover:bg-brass-500/20 transition mb-2">🌓 Toggle Theme</button>
+      v1.0 &middot; 100% Offline
+    </div>
+  </aside>
+
+  <!-- ============================= MAIN CONTENT ============================= -->
+  <main class="flex-1 min-h-screen overflow-x-hidden">
+    <!-- Top bar -->
+    <header class="no-print sticky top-0 z-20 backdrop-blur-md bg-gold-50/80 dark:bg-ink-900/80 border-b border-brass-400/30 px-4 md:px-8 py-3 flex items-center justify-between">
+      <h1 id="viewTitle" class="font-display text-xl md:text-2xl font-bold text-ink-800 dark:text-brass-200">Dashboard</h1>
+      <div class="flex items-center gap-3">
+        <span id="clockDisplay" class="hidden sm:block text-xs text-ink-500 dark:text-gold-200/60 font-mono"></span>
+        <button id="themeToggleBtnMobile" class="md:hidden w-9 h-9 rounded-full bg-brass-400/20 flex items-center justify-center">🌓</button>
+      </div>
+    </header>
+
+    <div id="viewContainer" class="p-4 md:p-8"></div>
+  </main>
+</div>
+
+<!-- ============================= TOAST CONTAINER ============================= -->
+<div id="toastContainer" class="no-print fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end"></div>
+
+<!-- ============================= MODAL ROOT ============================= -->
+<div id="modalRoot" class="no-print"></div>
+
+<!-- ============================= HIDDEN PRINT AREA ============================= -->
+<div id="printArea" class="hidden"></div>
+
+<script>
+/* =====================================================================================
+   NUWAN HARDWARE — OFFLINE POS SYSTEM
+   Single-file vanilla JS application. All persistence via localStorage.
+   Sections: Storage, Utils, State, Toast/Modal, Dashboard, Products, POS, Sales,
+   Reports, Settings, Import/Export, Router, Init.
+   ===================================================================================== */
+
+/* --------------------------------- STORAGE LAYER --------------------------------- */
+const DB = {
+  keys: {
+    settings: 'companySettings',
+    products: 'products',
+    categories: 'categories',
+    sales: 'sales',
+    invoiceCounter: 'invoiceCounter',
+    theme: 'theme'
+  },
+  get(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(e){ console.error('DB.get error', key, e); return fallback; }
+  },
+  set(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch(e){ console.error('DB.set error', key, e); Toast.show('Storage error — data may not be saved.', 'error'); return false; }
+  }
+};
+
+/* Default seed data (used only on first run) */
+const DEFAULT_SETTINGS = {
+  companyName: 'Nuwan Hardware',
+  logo: '',
+  address: 'Gurubevla, Pinnawala, Balangoda',
+  phone: '0766214785',
+  currencySymbol: 'Rs',
+  secondaryCurrencySymbol: 'US$',
+  taxPercent: 0,
+  footerLine1: 'POS System',
+  footerLine2: 'Nuwan Hardware',
+  themeColor: 'gold',
+  receiptSize: '80mm',
+  invoicePrefix: 'INV-',
+  cashierName: 'Cashier'
+};
+
+function loadSettings(){ return DB.get(DB.keys.settings, DEFAULT_SETTINGS); }
+function saveSettings(s){ DB.set(DB.keys.settings, s); }
+
+function loadProducts(){ return DB.get(DB.keys.products, []); }
+function saveProducts(p){ DB.set(DB.keys.products, p); }
+
+function loadCategories(){ return DB.get(DB.keys.categories, ['General','Tools','Electrical','Plumbing','Paint','Hardware']); }
+function saveCategories(c){ DB.set(DB.keys.categories, c); }
+
+function loadSales(){ return DB.get(DB.keys.sales, []); }
+function saveSales(s){ DB.set(DB.keys.sales, s); }
+
+function nextInvoiceNumber(){
+  let counter = DB.get(DB.keys.invoiceCounter, 0) + 1;
+  DB.set(DB.keys.invoiceCounter, counter);
+  const settings = loadSettings();
+  return settings.invoicePrefix + String(counter).padStart(5,'0');
+}
+function peekInvoiceCounter(){ return DB.get(DB.keys.invoiceCounter, 0); }
+
+/* --------------------------------- UTILITIES --------------------------------- */
+const Utils = {
+  uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); },
+  money(n){
+    const s = loadSettings();
+    const v = isFinite(n) ? n : 0;
+    return `${s.currencySymbol} ${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  },
+  fmtDate(d){ const dt = new Date(d); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); },
+  fmtTime(d){ const dt = new Date(d); return dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); },
+  isSameDay(d1,d2){ const a=new Date(d1), b=new Date(d2); return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); },
+  isSameMonth(d1,d2){ const a=new Date(d1), b=new Date(d2); return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth(); },
+  isSameWeek(d1,d2){ const a=new Date(d1), b=new Date(d2); const oneDay=864e5; const diff=Math.abs(Math.floor((a-b)/oneDay)); return diff<=7; },
+  escapeHtml(str){ const div=document.createElement('div'); div.textContent = str ?? ''; return div.innerHTML; },
+  debounce(fn, wait=250){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); }; }
+};
+
+/* --------------------------------- TOAST --------------------------------- */
+const Toast = {
+  show(message, type='success'){
+    const colors = {
+      success: 'bg-ink-800 text-brass-200 border-brass-500/40',
+      error: 'bg-red-900 text-red-100 border-red-500/40',
+      info: 'bg-ink-800 text-gold-100 border-gold-400/40'
+    };
+    const el = document.createElement('div');
+    el.className = `animate-toastIn px-4 py-3 rounded-xl shadow-glass border text-sm font-medium max-w-xs ${colors[type]||colors.success}`;
+    el.textContent = message;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 2600);
+  }
+};
+
+/* --------------------------------- MODAL --------------------------------- */
+const Modal = {
+  open(title, bodyHtml, opts={}){
+    const root = document.getElementById('modalRoot');
+    root.innerHTML = `
+      <div class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-fadeIn" id="modalOverlay">
+        <div class="animate-popIn bg-white dark:bg-ink-800 w-full ${opts.wide?'max-w-2xl':'max-w-md'} rounded-2xl shadow-glass border border-brass-300/30 max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-brass-300/20">
+            <h3 class="font-display font-bold text-lg text-ink-800 dark:text-brass-200">${title}</h3>
+            <button id="modalCloseBtn" class="w-8 h-8 rounded-full hover:bg-brass-400/20 flex items-center justify-center text-lg">✕</button>
+          </div>
+          <div class="p-6">${bodyHtml}</div>
+        </div>
+      </div>`;
+    document.getElementById('modalCloseBtn').onclick = Modal.close;
+    document.getElementById('modalOverlay').addEventListener('click', (e)=>{ if(e.target.id==='modalOverlay') Modal.close(); });
+  },
+  close(){ document.getElementById('modalRoot').innerHTML=''; },
+  confirm(message, onConfirm){
+    Modal.open('Confirm', `
+      <p class="text-sm text-ink-600 dark:text-gold-100/80 mb-6">${Utils.escapeHtml(message)}</p>
+      <div class="flex justify-end gap-3">
+        <button id="cancelConfirmBtn" class="px-4 py-2 rounded-xl bg-ink-100 dark:bg-ink-700 text-sm font-medium hover:bg-ink-200 dark:hover:bg-ink-600">Cancel</button>
+        <button id="okConfirmBtn" class="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700">Delete</button>
+      </div>`);
+    document.getElementById('cancelConfirmBtn').onclick = Modal.close;
+    document.getElementById('okConfirmBtn').onclick = ()=>{ onConfirm(); Modal.close(); };
+  }
+};
+
+/* --------------------------------- APP STATE --------------------------------- */
+const State = {
+  cart: [], // {id, name, price, cost, qty, stock}
+  discount: 0,
+  cashReceived: 0,
+  currentView: 'dashboard',
+  productFilter: { search:'', category:'All' },
+  salesFilter: { search:'', from:'', to:'' }
+};
+
+/* =====================================================================================
+   ROUTER
+   ===================================================================================== */
+const Views = {}; // populated below with render functions per view
+
+function navigate(view){
+  State.currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    const active = b.dataset.view === view;
+    b.classList.toggle('bg-brass-500/25', active);
+    b.classList.toggle('text-brass-300', active);
+  });
+  const titles = { dashboard:'Dashboard', pos:'POS Billing', products:'Product Management', sales:'Sales History', reports:'Reports', settings:'Settings' };
+  document.getElementById('viewTitle').textContent = titles[view] || '';
+  const container = document.getElementById('viewContainer');
+  container.innerHTML = '';
+  container.appendChild(Views[view]());
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> navigate(btn.dataset.view));
+});
+
+/* =====================================================================================
+   DASHBOARD
+   ===================================================================================== */
+Views.dashboard = function(){
+  const sales = loadSales();
+  const products = loadProducts();
+  const today = new Date();
+
+  const todaySales = sales.filter(s=>Utils.isSameDay(s.date, today));
+  const monthSales = sales.filter(s=>Utils.isSameMonth(s.date, today));
+
+  const sum = (arr,key)=>arr.reduce((a,s)=>a+(s[key]||0),0);
+  const todayRevenue = sum(todaySales,'total');
+  const todayProfit = sum(todaySales,'profit');
+  const monthRevenue = sum(monthSales,'total');
+  const monthProfit = sum(monthSales,'profit');
+  const lowStock = products.filter(p=>Number(p.stock) <= Number(p.lowStockAlert ?? 5));
+
+  // top selling products (by qty across all sales)
+  const qtyMap = {};
+  sales.forEach(s=>s.items.forEach(it=>{ qtyMap[it.name] = (qtyMap[it.name]||0) + it.qty; }));
+  const topProducts = Object.entries(qtyMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxQty = topProducts.length ? topProducts[0][1] : 1;
+
+  const recent = [...sales].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn space-y-6';
+  wrap.innerHTML = `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      ${statCard('Today\'s Sales', Utils.money(todayRevenue), '💰', 'from-brass-400 to-gold-500')}
+      ${statCard('Today\'s Profit', Utils.money(todayProfit), '📈', 'from-emerald-400 to-emerald-600')}
+      ${statCard('Today\'s Orders', todaySales.length, '🧾', 'from-sky-400 to-sky-600')}
+      ${statCard('Products', products.length, '📦', 'from-violet-400 to-violet-600')}
+      ${statCard('Monthly Revenue', Utils.money(monthRevenue), '🗓️', 'from-brass-500 to-ink-700')}
+      ${statCard('Monthly Profit', Utils.money(monthProfit), '💹', 'from-emerald-500 to-emerald-700')}
+      ${statCard('Low Stock Items', lowStock.length, '⚠️', 'from-red-400 to-red-600')}
+      ${statCard('Total Invoices', peekInvoiceCounter(), '🔢', 'from-ink-500 to-ink-700')}
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+        <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Top Selling Products</h3>
+        <div class="space-y-3">
+          ${topProducts.length ? topProducts.map(([name,qty])=>`
+            <div>
+              <div class="flex justify-between text-sm mb-1"><span class="font-medium">${Utils.escapeHtml(name)}</span><span class="text-ink-500 dark:text-gold-200/60">${qty} sold</span></div>
+              <div class="w-full h-2 rounded-full bg-gold-100 dark:bg-ink-700 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-brass-400 to-gold-600 rounded-full" style="width:${(qty/maxQty*100).toFixed(0)}%"></div>
+              </div>
+            </div>`).join('') : `<p class="text-sm text-ink-400">No sales yet.</p>`}
+        </div>
+      </div>
+
+      <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+        <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Recent Sales</h3>
+        <div class="space-y-2 max-h-64 overflow-y-auto">
+          ${recent.length ? recent.map(s=>`
+            <div class="flex justify-between items-center text-sm border-b border-brass-200/20 pb-2">
+              <div>
+                <p class="font-medium">${s.invoiceNo}</p>
+                <p class="text-xs text-ink-400">${Utils.fmtDate(s.date)} · ${Utils.fmtTime(s.date)}</p>
+              </div>
+              <span class="font-semibold text-brass-600 dark:text-brass-300">${Utils.money(s.total)}</span>
+            </div>`).join('') : `<p class="text-sm text-ink-400">No sales yet.</p>`}
+        </div>
+      </div>
+    </div>
+
+    ${lowStock.length ? `
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-300/40 rounded-2xl p-5">
+      <h3 class="font-display font-bold text-red-700 dark:text-red-300 mb-3">⚠️ Low Stock Alert</h3>
+      <div class="flex flex-wrap gap-2">
+        ${lowStock.map(p=>`<span class="px-3 py-1 rounded-full bg-red-100 dark:bg-red-800/40 text-red-700 dark:text-red-200 text-xs font-medium">${Utils.escapeHtml(p.name)} — ${p.stock} left</span>`).join('')}
+      </div>
+    </div>` : ''}
+  `;
+  return wrap;
+};
+
+function statCard(label, value, icon, gradient){
+  return `
+    <div class="rounded-2xl p-4 bg-gradient-to-br ${gradient} text-white shadow-glass relative overflow-hidden">
+      <div class="text-2xl mb-1">${icon}</div>
+      <p class="text-xs opacity-80">${label}</p>
+      <p class="text-xl font-bold font-display">${value}</p>
+    </div>`;
+}
+
+/* =====================================================================================
+   PRODUCT MANAGEMENT
+   ===================================================================================== */
+Views.products = function(){
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn space-y-5';
+
+  const categories = loadCategories();
+
+  wrap.innerHTML = `
+    <div class="flex flex-wrap gap-3 items-center justify-between">
+      <div class="flex flex-wrap gap-2 flex-1">
+        <input id="productSearch" type="text" placeholder="🔍 Search by name, SKU or barcode..." class="flex-1 min-w-[200px] px-4 py-2.5 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50 focus:outline-none focus:ring-2 focus:ring-brass-400">
+        <select id="categoryFilter" class="px-4 py-2.5 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50 focus:outline-none focus:ring-2 focus:ring-brass-400">
+          <option value="All">All Categories</option>
+          ${categories.map(c=>`<option value="${c}">${c}</option>`).join('')}
+        </select>
+      </div>
+      <button id="addProductBtn" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-brass-500 to-gold-600 text-white font-semibold shadow-glass hover:brightness-110 transition">+ Add Product</button>
+    </div>
+    <div id="productTableWrap" class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 overflow-hidden"></div>
+  `;
+
+  const renderTable = ()=>{
+    const products = loadProducts();
+    const search = State.productFilter.search.toLowerCase();
+    const cat = State.productFilter.category;
+    const filtered = products.filter(p=>{
+      const matchSearch = !search || p.name.toLowerCase().includes(search) || (p.sku||'').toLowerCase().includes(search) || (p.barcode||'').toLowerCase().includes(search);
+      const matchCat = cat==='All' || p.category===cat;
+      return matchSearch && matchCat;
+    });
+    const tableWrap = wrap.querySelector('#productTableWrap');
+    tableWrap.innerHTML = `
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-brass-100/60 dark:bg-ink-700/60 text-left">
+          <tr>
+            <th class="px-4 py-3">Product</th><th class="px-4 py-3">Category</th><th class="px-4 py-3">SKU</th>
+            <th class="px-4 py-3">Buy Price</th><th class="px-4 py-3">Sell Price</th><th class="px-4 py-3">Stock</th><th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brass-200/20">
+          ${filtered.map(p=>`
+            <tr class="hover:bg-brass-50/50 dark:hover:bg-ink-700/40">
+              <td class="px-4 py-3 flex items-center gap-2">
+                <div class="w-9 h-9 rounded-lg bg-brass-200/60 dark:bg-ink-600 flex items-center justify-center overflow-hidden text-xs">${p.image?`<img src="${p.image}" class="w-full h-full object-cover">`:'📦'}</div>
+                <span class="font-medium">${Utils.escapeHtml(p.name)}</span>
+              </td>
+              <td class="px-4 py-3">${Utils.escapeHtml(p.category||'-')}</td>
+              <td class="px-4 py-3 font-mono text-xs">${Utils.escapeHtml(p.sku||'-')}</td>
+              <td class="px-4 py-3">${Utils.money(p.cost)}</td>
+              <td class="px-4 py-3 font-semibold">${Utils.money(p.price)}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${Number(p.stock)<=Number(p.lowStockAlert??5)?'bg-red-100 text-red-700 dark:bg-red-800/40 dark:text-red-200':'bg-emerald-100 text-emerald-700 dark:bg-emerald-800/40 dark:text-emerald-200'}">${p.stock}</span>
+              </td>
+              <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                <button data-edit="${p.id}" class="px-3 py-1.5 rounded-lg bg-brass-100 dark:bg-ink-600 hover:bg-brass-200 dark:hover:bg-ink-500 text-xs font-medium">Edit</button>
+                <button data-del="${p.id}" class="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 hover:bg-red-200 text-xs font-medium">Delete</button>
+              </td>
+            </tr>`).join('') || `<tr><td colspan="7" class="px-4 py-10 text-center text-ink-400">No products found. Click "Add Product" to get started.</td></tr>`}
+        </tbody>
+      </table>
+      </div>`;
+
+    tableWrap.querySelectorAll('[data-edit]').forEach(btn=> btn.onclick = ()=> openProductForm(btn.dataset.edit, renderTable));
+    tableWrap.querySelectorAll('[data-del]').forEach(btn=> btn.onclick = ()=>{
+      Modal.confirm('Delete this product permanently?', ()=>{
+        saveProducts(loadProducts().filter(p=>p.id!==btn.dataset.del));
+        Toast.show('Product deleted.');
+        renderTable();
+      });
+    });
+  };
+
+  wrap.querySelector('#productSearch').addEventListener('input', Utils.debounce(e=>{ State.productFilter.search = e.target.value; renderTable(); }, 200));
+  wrap.querySelector('#categoryFilter').addEventListener('change', e=>{ State.productFilter.category = e.target.value; renderTable(); });
+  wrap.querySelector('#addProductBtn').addEventListener('click', ()=> openProductForm(null, renderTable));
+
+  renderTable();
+  return wrap;
+};
+
+function openProductForm(id, onSaved){
+  const products = loadProducts();
+  const categories = loadCategories();
+  const existing = id ? products.find(p=>p.id===id) : null;
+
+  Modal.open(existing ? 'Edit Product' : 'Add Product', `
+    <form id="productForm" class="space-y-4">
+      <div class="flex gap-4 items-center">
+        <div id="imgPreview" class="w-16 h-16 rounded-xl bg-brass-100 dark:bg-ink-700 flex items-center justify-center overflow-hidden text-2xl shrink-0">
+          ${existing?.image ? `<img src="${existing.image}" class="w-full h-full object-cover">` : '📦'}
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Product Image</label>
+          <input id="f_image" type="file" accept="image/*" class="text-xs w-full">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Product Name *</label>
+        <input id="f_name" required value="${existing?Utils.escapeHtml(existing.name):''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50 focus:outline-none focus:ring-2 focus:ring-brass-400">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Category</label>
+          <select id="f_category" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+            ${categories.map(c=>`<option ${existing?.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">SKU</label>
+          <input id="f_sku" value="${existing?Utils.escapeHtml(existing.sku||''):''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Barcode</label>
+        <input id="f_barcode" value="${existing?Utils.escapeHtml(existing.barcode||''):''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Buy Price</label>
+          <input id="f_cost" type="number" step="0.01" min="0" value="${existing?existing.cost:''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Sell Price *</label>
+          <input id="f_price" required type="number" step="0.01" min="0" value="${existing?existing.price:''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Stock *</label>
+          <input id="f_stock" required type="number" min="0" value="${existing?existing.stock:''}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Low Stock Alert Threshold</label>
+        <input id="f_low" type="number" min="0" value="${existing?existing.lowStockAlert??5:5}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" id="cancelProductBtn" class="px-4 py-2 rounded-xl bg-ink-100 dark:bg-ink-700 text-sm font-medium">Cancel</button>
+        <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-brass-500 to-gold-600 text-white text-sm font-semibold shadow-glass">Save Product</button>
+      </div>
+    </form>
+  `, {wide:false});
+
+  let imageData = existing?.image || '';
+  document.getElementById('f_image').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ imageData = reader.result; document.getElementById('imgPreview').innerHTML = `<img src="${imageData}" class="w-full h-full object-cover">`; };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('cancelProductBtn').onclick = Modal.close;
+  document.getElementById('productForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const data = {
+      id: existing?.id || Utils.uid(),
+      name: document.getElementById('f_name').value.trim(),
+      category: document.getElementById('f_category').value,
+      sku: document.getElementById('f_sku').value.trim(),
+      barcode: document.getElementById('f_barcode').value.trim(),
+      cost: parseFloat(document.getElementById('f_cost').value)||0,
+      price: parseFloat(document.getElementById('f_price').value)||0,
+      stock: parseInt(document.getElementById('f_stock').value)||0,
+      lowStockAlert: parseInt(document.getElementById('f_low').value)||5,
+      image: imageData
+    };
+    if(!data.name){ Toast.show('Product name is required.', 'error'); return; }
+    let products = loadProducts();
+    if(existing){ products = products.map(p=>p.id===existing.id?data:p); }
+    else { products.push(data); }
+    saveProducts(products);
+    Toast.show(existing?'Product updated.':'Product added.');
+    Modal.close();
+    onSaved();
+  });
+}
+
+/* =====================================================================================
+   POS BILLING SCREEN
+   ===================================================================================== */
+Views.pos = function(){
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn grid lg:grid-cols-3 gap-5';
+
+  wrap.innerHTML = `
+    <div class="lg:col-span-2 space-y-4">
+      <div class="flex gap-2">
+        <input id="posSearch" type="text" placeholder="🔍 Search or scan barcode..." autofocus class="flex-1 px-4 py-3 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50 focus:outline-none focus:ring-2 focus:ring-brass-400">
+        <select id="posCategoryFilter" class="px-3 py-3 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50">
+          <option value="All">All</option>
+          ${loadCategories().map(c=>`<option>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div id="posGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto pr-1"></div>
+    </div>
+
+    <div class="bg-white/80 dark:bg-ink-800/70 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-4 flex flex-col h-fit lg:sticky lg:top-20">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-display font-bold text-ink-800 dark:text-brass-200">🛒 Cart</h3>
+        <button id="clearCartBtn" class="text-xs text-red-500 hover:underline">Clear</button>
+      </div>
+      <div id="cartItems" class="space-y-2 max-h-64 overflow-y-auto mb-3 flex-1"></div>
+      <div class="border-t border-brass-300/30 pt-3 space-y-2 text-sm">
+        <div class="flex justify-between"><span>Subtotal</span><span id="cartSubtotal">${Utils.money(0)}</span></div>
+        <div class="flex justify-between items-center">
+          <span>Discount</span>
+          <input id="discountInput" type="number" min="0" value="0" class="w-24 px-2 py-1 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50 text-right">
+        </div>
+        <div class="flex justify-between"><span id="taxLabel">Tax</span><span id="cartTax">${Utils.money(0)}</span></div>
+        <div class="flex justify-between text-lg font-bold pt-1 border-t border-brass-300/20"><span>Total</span><span id="cartTotal" class="text-brass-600 dark:text-brass-300">${Utils.money(0)}</span></div>
+        <div class="flex justify-between items-center pt-1">
+          <span>Cash Received</span>
+          <input id="cashInput" type="number" min="0" value="0" class="w-28 px-2 py-1 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50 text-right">
+        </div>
+        <div class="flex justify-between font-semibold"><span>Balance</span><span id="cartBalance">${Utils.money(0)}</span></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <button id="cancelSaleBtn" class="py-3 rounded-xl bg-ink-100 dark:bg-ink-700 font-semibold text-sm hover:bg-ink-200">Cancel Sale</button>
+        <button id="completeSaleBtn" class="py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-sm shadow-glass hover:brightness-110">Complete Sale (F2)</button>
+      </div>
+    </div>
+  `;
+
+  const settings = loadSettings();
+
+  function renderGrid(){
+    const products = loadProducts();
+    const search = (wrap.querySelector('#posSearch').value||'').toLowerCase();
+    const cat = wrap.querySelector('#posCategoryFilter').value;
+    const filtered = products.filter(p=>{
+      const matchSearch = !search || p.name.toLowerCase().includes(search) || (p.sku||'').toLowerCase().includes(search) || (p.barcode||'').toLowerCase()===search;
+      const matchCat = cat==='All' || p.category===cat;
+      return matchSearch && matchCat;
+    });
+    const grid = wrap.querySelector('#posGrid');
+    grid.innerHTML = filtered.map(p=>`
+      <button data-add="${p.id}" ${Number(p.stock)<=0?'disabled':''} class="text-left bg-white/70 dark:bg-ink-800/60 rounded-xl border border-brass-300/20 p-3 hover:shadow-glass hover:border-brass-400 transition disabled:opacity-40 disabled:cursor-not-allowed">
+        <div class="w-full h-16 rounded-lg bg-brass-100 dark:bg-ink-700 flex items-center justify-center text-2xl mb-2 overflow-hidden">${p.image?`<img src="${p.image}" class="w-full h-full object-cover">`:'📦'}</div>
+        <p class="text-xs font-semibold truncate">${Utils.escapeHtml(p.name)}</p>
+        <p class="text-xs text-brass-600 dark:text-brass-300 font-bold">${Utils.money(p.price)}</p>
+        <p class="text-[10px] ${Number(p.stock)<=Number(p.lowStockAlert??5)?'text-red-500':'text-ink-400'}">Stock: ${p.stock}</p>
+      </button>`).join('') || `<p class="col-span-full text-center text-ink-400 py-10">No products match.</p>`;
+
+    grid.querySelectorAll('[data-add]').forEach(btn=> btn.onclick = ()=> addToCart(btn.dataset.add));
+  }
+
+  function addToCart(productId){
+    const products = loadProducts();
+    const product = products.find(p=>p.id===productId);
+    if(!product) return;
+    const inCart = State.cart.find(i=>i.id===productId);
+    const currentQty = inCart ? inCart.qty : 0;
+    if(currentQty + 1 > Number(product.stock)){ Toast.show(`Only ${product.stock} in stock for ${product.name}.`, 'error'); return; }
+    if(inCart){ inCart.qty += 1; }
+    else{ State.cart.push({ id:product.id, name:product.name, price:Number(product.price), cost:Number(product.cost), qty:1, stock:Number(product.stock) }); }
+    renderCart();
+  }
+
+  function changeQty(id, delta){
+    const item = State.cart.find(i=>i.id===id);
+    if(!item) return;
+    const newQty = item.qty + delta;
+    if(newQty <= 0){ State.cart = State.cart.filter(i=>i.id!==id); }
+    else if(newQty > item.stock){ Toast.show('Not enough stock.', 'error'); return; }
+    else{ item.qty = newQty; }
+    renderCart();
+  }
+
+  function calcTotals(){
+    const subtotal = State.cart.reduce((a,i)=>a+i.price*i.qty,0);
+    const discount = parseFloat(wrap.querySelector('#discountInput').value) || 0;
+    const taxPercent = Number(settings.taxPercent)||0;
+    const taxable = Math.max(subtotal - discount, 0);
+    const tax = taxable * (taxPercent/100);
+    const total = taxable + tax;
+    const cash = parseFloat(wrap.querySelector('#cashInput').value) || 0;
+    const balance = cash - total;
+    return {subtotal, discount, tax, total, cash, balance, taxPercent};
+  }
+
+  function renderCart(){
+    const list = wrap.querySelector('#cartItems');
+    list.innerHTML = State.cart.map(i=>`
+      <div class="flex items-center justify-between gap-2 bg-brass-50/60 dark:bg-ink-700/50 rounded-lg px-2 py-1.5">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold truncate">${Utils.escapeHtml(i.name)}</p>
+          <p class="text-[11px] text-ink-500 dark:text-gold-200/60">${Utils.money(i.price)} × ${i.qty}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button data-dec="${i.id}" class="w-6 h-6 rounded-full bg-ink-100 dark:bg-ink-600 text-xs">−</button>
+          <span class="w-6 text-center text-xs font-semibold">${i.qty}</span>
+          <button data-inc="${i.id}" class="w-6 h-6 rounded-full bg-ink-100 dark:bg-ink-600 text-xs">+</button>
+          <button data-rm="${i.id}" class="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 text-xs ml-1">✕</button>
+        </div>
+      </div>`).join('') || `<p class="text-xs text-ink-400 text-center py-6">Cart is empty. Tap a product to add.</p>`;
+
+    list.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>changeQty(b.dataset.inc,1));
+    list.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>changeQty(b.dataset.dec,-1));
+    list.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ State.cart = State.cart.filter(i=>i.id!==b.dataset.rm); renderCart(); });
+
+    const t = calcTotals();
+    wrap.querySelector('#cartSubtotal').textContent = Utils.money(t.subtotal);
+    wrap.querySelector('#taxLabel').textContent = `Tax (${t.taxPercent}%)`;
+    wrap.querySelector('#cartTax').textContent = Utils.money(t.tax);
+    wrap.querySelector('#cartTotal').textContent = Utils.money(t.total);
+    wrap.querySelector('#cartBalance').textContent = Utils.money(t.balance);
+    const balEl = wrap.querySelector('#cartBalance');
+    balEl.classList.toggle('text-red-500', t.balance < 0);
+    balEl.classList.toggle('text-emerald-600', t.balance >= 0);
+  }
+
+  wrap.querySelector('#posSearch').addEventListener('input', Utils.debounce(renderGrid, 150));
+  wrap.querySelector('#posCategoryFilter').addEventListener('change', renderGrid);
+  wrap.querySelector('#discountInput').addEventListener('input', renderCart);
+  wrap.querySelector('#cashInput').addEventListener('input', renderCart);
+  wrap.querySelector('#clearCartBtn').addEventListener('click', ()=>{ State.cart=[]; renderCart(); });
+  wrap.querySelector('#cancelSaleBtn').addEventListener('click', ()=>{
+    if(!State.cart.length) return;
+    Modal.confirm('Cancel this sale and clear the cart?', ()=>{ State.cart=[]; wrap.querySelector('#discountInput').value=0; wrap.querySelector('#cashInput').value=0; renderCart(); });
+  });
+  wrap.querySelector('#completeSaleBtn').addEventListener('click', ()=> completeSale(wrap, calcTotals, renderGrid, renderCart));
+
+  renderGrid();
+  renderCart();
+  return wrap;
+};
+
+function completeSale(wrap, calcTotals, renderGrid, renderCart){
+  if(!State.cart.length){ Toast.show('Cart is empty.', 'error'); return; }
+  const t = calcTotals();
+  if(t.cash < t.total){ Toast.show('Cash received is less than total.', 'error'); return; }
+
+  const settings = loadSettings();
+  const products = loadProducts();
+  // validate & deduct stock
+  for(const item of State.cart){
+    const p = products.find(pp=>pp.id===item.id);
+    if(!p || Number(p.stock) < item.qty){ Toast.show(`Insufficient stock for ${item.name}.`, 'error'); return; }
+  }
+  const updatedProducts = products.map(p=>{
+    const cartItem = State.cart.find(i=>i.id===p.id);
+    return cartItem ? {...p, stock: Number(p.stock) - cartItem.qty} : p;
+  });
+  saveProducts(updatedProducts);
+
+  const profit = State.cart.reduce((a,i)=>a + (i.price - i.cost)*i.qty, 0) - t.discount*0; // discount already reflected in total, profit uses gross margin
+  const sale = {
+    id: Utils.uid(),
+    invoiceNo: nextInvoiceNumber(),
+    date: new Date().toISOString(),
+    cashier: settings.cashierName || 'Cashier',
+    items: State.cart.map(i=>({name:i.name, qty:i.qty, price:i.price, cost:i.cost, subtotal:i.price*i.qty})),
+    subtotal: t.subtotal,
+    discount: t.discount,
+    taxPercent: t.taxPercent,
+    tax: t.tax,
+    total: t.total,
+    cash: t.cash,
+    balance: t.balance,
+    profit: profit
+  };
+  const sales = loadSales();
+  sales.push(sale);
+  saveSales(sales);
+
+  Toast.show(`Sale ${sale.invoiceNo} completed.`);
+  printReceipt(sale);
+
+  State.cart = [];
+  wrap.querySelector('#discountInput').value = 0;
+  wrap.querySelector('#cashInput').value = 0;
+  renderGrid();
+  renderCart();
+}
+
+/* =====================================================================================
+   RECEIPT / PRINT
+   ===================================================================================== */
+function receiptHtml(sale){
+  const s = loadSettings();
+  const sizeClass = s.receiptSize === '58mm' ? 'w-[58mm] text-[10px]' : s.receiptSize === 'A4' ? 'w-[190mm] text-sm' : 'w-[80mm] text-xs';
+  return `
+    <div class="${sizeClass} mx-auto font-mono text-ink-900 p-3">
+      <div class="text-center mb-2">
+        ${s.logo?`<img src="${s.logo}" class="mx-auto mb-1" style="max-height:48px">`:''}
+        <p class="font-bold text-base">${Utils.escapeHtml(s.companyName)}</p>
+        <p>${Utils.escapeHtml(s.address)}</p>
+        <p>Tel: ${Utils.escapeHtml(s.phone)}</p>
+      </div>
+      <div class="border-t border-b border-dashed border-ink-400 py-1 my-1">
+        <p>Invoice: ${sale.invoiceNo}</p>
+        <p>Date: ${Utils.fmtDate(sale.date)}  Time: ${Utils.fmtTime(sale.date)}</p>
+        <p>Cashier: ${Utils.escapeHtml(sale.cashier)}</p>
+      </div>
+      <table class="w-full">
+        <thead><tr class="border-b border-dashed border-ink-400"><th class="text-left">Item</th><th>Qty</th><th class="text-right">Price</th><th class="text-right">Total</th></tr></thead>
+        <tbody>
+          ${sale.items.map(it=>`<tr><td class="text-left">${Utils.escapeHtml(it.name)}</td><td class="text-center">${it.qty}</td><td class="text-right">${it.price.toFixed(2)}</td><td class="text-right">${it.subtotal.toFixed(2)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="border-t border-dashed border-ink-400 mt-1 pt-1">
+        <p class="flex justify-between"><span>Subtotal</span><span>${Utils.money(sale.subtotal)}</span></p>
+        <p class="flex justify-between"><span>Discount</span><span>${Utils.money(sale.discount)}</span></p>
+        <p class="flex justify-between"><span>Tax (${sale.taxPercent}%)</span><span>${Utils.money(sale.tax)}</span></p>
+        <p class="flex justify-between font-bold text-sm"><span>TOTAL</span><span>${Utils.money(sale.total)}</span></p>
+        <p class="flex justify-between"><span>Cash</span><span>${Utils.money(sale.cash)}</span></p>
+        <p class="flex justify-between"><span>Balance</span><span>${Utils.money(sale.balance)}</span></p>
+      </div>
+      <div class="text-center mt-2 border-t border-dashed border-ink-400 pt-2">
+        <p>${Utils.escapeHtml(s.footerLine1)}</p>
+        <p>${Utils.escapeHtml(s.footerLine2)}</p>
+        <p class="mt-1 tracking-widest">▌▌▌ ${sale.invoiceNo} ▌▌▌</p>
+      </div>
+    </div>`;
+}
+
+function printReceipt(sale){
+  document.getElementById('printArea').innerHTML = receiptHtml(sale);
+  window.print();
+}
+
+function viewReceiptModal(sale){
+  Modal.open('Receipt Preview', `
+    <div class="bg-white rounded-xl border border-brass-200 p-2">${receiptHtml(sale)}</div>
+    <div class="flex justify-end gap-3 mt-4">
+      <button id="reprintBtn" class="px-5 py-2 rounded-xl bg-gradient-to-r from-brass-500 to-gold-600 text-white text-sm font-semibold shadow-glass">🖨️ Print</button>
+    </div>
+  `, {wide:false});
+  document.getElementById('reprintBtn').onclick = ()=> printReceipt(sale);
+}
+
+/* =====================================================================================
+   SALES HISTORY
+   ===================================================================================== */
+Views.sales = function(){
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn space-y-5';
+  wrap.innerHTML = `
+    <div class="flex flex-wrap gap-3">
+      <input id="salesSearch" type="text" placeholder="🔍 Search invoice or product..." class="flex-1 min-w-[200px] px-4 py-2.5 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50">
+      <input id="salesFrom" type="date" class="px-4 py-2.5 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50">
+      <input id="salesTo" type="date" class="px-4 py-2.5 rounded-xl border border-brass-300/40 bg-white/70 dark:bg-ink-800/60 dark:text-gold-50">
+    </div>
+    <div id="salesTableWrap" class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 overflow-hidden"></div>
+  `;
+
+  function renderTable(){
+    let sales = [...loadSales()].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const search = (wrap.querySelector('#salesSearch').value||'').toLowerCase();
+    const from = wrap.querySelector('#salesFrom').value;
+    const to = wrap.querySelector('#salesTo').value;
+    if(search){ sales = sales.filter(s=> s.invoiceNo.toLowerCase().includes(search) || s.items.some(i=>i.name.toLowerCase().includes(search))); }
+    if(from){ sales = sales.filter(s=> new Date(s.date) >= new Date(from)); }
+    if(to){ sales = sales.filter(s=> new Date(s.date) <= new Date(to+'T23:59:59')); }
+
+    const tableWrap = wrap.querySelector('#salesTableWrap');
+    tableWrap.innerHTML = `
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-brass-100/60 dark:bg-ink-700/60 text-left">
+          <tr><th class="px-4 py-3">Invoice</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Items</th><th class="px-4 py-3">Total</th><th class="px-4 py-3 text-right">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-brass-200/20">
+          ${sales.map(s=>`
+            <tr class="hover:bg-brass-50/50 dark:hover:bg-ink-700/40">
+              <td class="px-4 py-3 font-medium">${s.invoiceNo}</td>
+              <td class="px-4 py-3">${Utils.fmtDate(s.date)} ${Utils.fmtTime(s.date)}</td>
+              <td class="px-4 py-3">${s.items.length} item(s)</td>
+              <td class="px-4 py-3 font-semibold text-brass-600 dark:text-brass-300">${Utils.money(s.total)}</td>
+              <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                <button data-view="${s.id}" class="px-3 py-1.5 rounded-lg bg-brass-100 dark:bg-ink-600 text-xs font-medium">View</button>
+                <button data-print="${s.id}" class="px-3 py-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-xs font-medium">Print</button>
+                <button data-delsale="${s.id}" class="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 text-xs font-medium">Delete</button>
+              </td>
+            </tr>`).join('') || `<tr><td colspan="5" class="px-4 py-10 text-center text-ink-400">No sales found.</td></tr>`}
+        </tbody>
+      </table>
+      </div>`;
+
+    tableWrap.querySelectorAll('[data-view]').forEach(b=> b.onclick = ()=> viewReceiptModal(loadSales().find(s=>s.id===b.dataset.view)));
+    tableWrap.querySelectorAll('[data-print]').forEach(b=> b.onclick = ()=> printReceipt(loadSales().find(s=>s.id===b.dataset.print)));
+    tableWrap.querySelectorAll('[data-delsale]').forEach(b=> b.onclick = ()=>{
+      Modal.confirm('Delete this sale record? Stock will not be restored automatically.', ()=>{
+        saveSales(loadSales().filter(s=>s.id!==b.dataset.delsale));
+        Toast.show('Sale deleted.');
+        renderTable();
+      });
+    });
+  }
+
+  ['salesSearch','salesFrom','salesTo'].forEach(id=> wrap.querySelector('#'+id).addEventListener('input', Utils.debounce(renderTable,150)));
+  renderTable();
+  return wrap;
+};
+
+/* =====================================================================================
+   REPORTS
+   ===================================================================================== */
+Views.reports = function(){
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn space-y-6';
+
+  const sales = loadSales();
+  const now = new Date();
+  const todaySales = sales.filter(s=>Utils.isSameDay(s.date, now));
+  const weekSales = sales.filter(s=>Utils.isSameWeek(s.date, now));
+  const monthSales = sales.filter(s=>Utils.isSameMonth(s.date, now));
+
+  const sum = (arr,k)=>arr.reduce((a,s)=>a+(s[k]||0),0);
+  const avg = (arr)=> arr.length ? sum(arr,'total')/arr.length : 0;
+
+  // product performance
+  const perf = {};
+  sales.forEach(s=>s.items.forEach(it=>{
+    perf[it.name] = perf[it.name] || {qty:0, revenue:0};
+    perf[it.name].qty += it.qty;
+    perf[it.name].revenue += it.subtotal;
+  }));
+  const perfArr = Object.entries(perf).map(([name,v])=>({name,...v}));
+  const mostSold = [...perfArr].sort((a,b)=>b.qty-a.qty).slice(0,5);
+  const leastSold = [...perfArr].sort((a,b)=>a.qty-b.qty).slice(0,5);
+
+  // category sales
+  const products = loadProducts();
+  const catMap = {};
+  sales.forEach(s=>s.items.forEach(it=>{
+    const prod = products.find(p=>p.name===it.name);
+    const cat = prod?.category || 'Uncategorized';
+    catMap[cat] = (catMap[cat]||0) + it.subtotal;
+  }));
+  const catArr = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const maxCat = catArr.length ? catArr[0][1] : 1;
+
+  // hourly sales (today)
+  const hourly = Array(24).fill(0);
+  todaySales.forEach(s=>{ hourly[new Date(s.date).getHours()] += s.total; });
+  const maxHour = Math.max(...hourly, 1);
+
+  wrap.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      ${reportPeriodCard('Today', todaySales)}
+      ${reportPeriodCard('This Week', weekSales)}
+      ${reportPeriodCard('This Month', monthSales)}
+    </div>
+
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+      <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Hourly Sales — Today</h3>
+      <div class="flex items-end gap-1 h-32">
+        ${hourly.map((v,h)=>`<div class="flex-1 flex flex-col items-center gap-1">
+          <div class="w-full bg-gradient-to-t from-brass-400 to-gold-500 rounded-t" style="height:${Math.max((v/maxHour*100),2)}%"></div>
+          <span class="text-[9px] text-ink-400">${h}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+        <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Most Sold Products</h3>
+        ${mostSold.length ? mostSold.map(p=>`<div class="flex justify-between text-sm py-1.5 border-b border-brass-200/20"><span>${Utils.escapeHtml(p.name)}</span><span class="font-semibold">${p.qty} sold</span></div>`).join('') : `<p class="text-sm text-ink-400">No data.</p>`}
+      </div>
+      <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+        <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Least Sold Products</h3>
+        ${leastSold.length ? leastSold.map(p=>`<div class="flex justify-between text-sm py-1.5 border-b border-brass-200/20"><span>${Utils.escapeHtml(p.name)}</span><span class="font-semibold">${p.qty} sold</span></div>`).join('') : `<p class="text-sm text-ink-400">No data.</p>`}
+      </div>
+    </div>
+
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+      <h3 class="font-display font-bold text-ink-800 dark:text-brass-200 mb-4">Category Sales</h3>
+      <div class="space-y-3">
+        ${catArr.length ? catArr.map(([cat,val])=>`
+          <div>
+            <div class="flex justify-between text-sm mb-1"><span>${Utils.escapeHtml(cat)}</span><span>${Utils.money(val)}</span></div>
+            <div class="w-full h-2 rounded-full bg-gold-100 dark:bg-ink-700 overflow-hidden"><div class="h-full bg-gradient-to-r from-brass-400 to-gold-600" style="width:${(val/maxCat*100).toFixed(0)}%"></div></div>
+          </div>`).join('') : `<p class="text-sm text-ink-400">No sales yet.</p>`}
+      </div>
+    </div>
+  `;
+
+  function reportPeriodCard(label, arr){
+    return `
+      <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-5">
+        <p class="text-xs text-ink-400 uppercase tracking-wide mb-1">${label}</p>
+        <p class="text-2xl font-bold font-display text-brass-600 dark:text-brass-300">${Utils.money(sum(arr,'total'))}</p>
+        <div class="grid grid-cols-2 gap-2 mt-3 text-xs text-ink-500 dark:text-gold-200/60">
+          <p>Profit: <span class="font-semibold text-ink-700 dark:text-gold-100">${Utils.money(sum(arr,'profit'))}</span></p>
+          <p>Orders: <span class="font-semibold text-ink-700 dark:text-gold-100">${arr.length}</span></p>
+          <p>Avg Sale: <span class="font-semibold text-ink-700 dark:text-gold-100">${Utils.money(avg(arr))}</span></p>
+        </div>
+      </div>`;
+  }
+
+  return wrap;
+};
+
+/* =====================================================================================
+   SETTINGS
+   ===================================================================================== */
+Views.settings = function(){
+  const wrap = document.createElement('div');
+  wrap.className = 'animate-fadeIn max-w-3xl space-y-6';
+  const s = loadSettings();
+
+  wrap.innerHTML = `
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-6 space-y-4">
+      <h3 class="font-display font-bold text-lg text-ink-800 dark:text-brass-200">Company Information</h3>
+      <div class="flex items-center gap-4">
+        <div id="logoPreview" class="w-16 h-16 rounded-xl bg-brass-100 dark:bg-ink-700 flex items-center justify-center overflow-hidden text-2xl">${s.logo?`<img src="${s.logo}" class="w-full h-full object-cover">`:'🏬'}</div>
+        <input id="s_logo" type="file" accept="image/*" class="text-xs">
+      </div>
+      ${settingsField('s_companyName','Company Name', s.companyName)}
+      ${settingsField('s_address','Address', s.address)}
+      ${settingsField('s_phone','Phone Number', s.phone)}
+      ${settingsField('s_cashierName','Default Cashier Name', s.cashierName)}
+    </div>
+
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-6 space-y-4">
+      <h3 class="font-display font-bold text-lg text-ink-800 dark:text-brass-200">Billing & Currency</h3>
+      <div class="grid grid-cols-2 gap-4">
+        ${settingsField('s_currency','Currency Symbol', s.currencySymbol)}
+        ${settingsField('s_secondaryCurrency','Secondary Currency (reference only)', s.secondaryCurrencySymbol)}
+        ${settingsField('s_tax','Tax Percentage (%)', s.taxPercent, 'number')}
+        ${settingsField('s_invoicePrefix','Invoice Prefix', s.invoicePrefix)}
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">Receipt Size</label>
+        <select id="s_receiptSize" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+          ${['58mm','80mm','A4'].map(v=>`<option ${s.receiptSize===v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      ${settingsField('s_footer1','Receipt Footer — Line 1', s.footerLine1)}
+      ${settingsField('s_footer2','Receipt Footer — Line 2', s.footerLine2)}
+    </div>
+
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-6 space-y-4">
+      <h3 class="font-display font-bold text-lg text-ink-800 dark:text-brass-200">Categories</h3>
+      <div id="categoryList" class="flex flex-wrap gap-2"></div>
+      <div class="flex gap-2">
+        <input id="newCategoryInput" placeholder="New category name" class="flex-1 px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50">
+        <button id="addCategoryBtn" class="px-4 py-2 rounded-lg bg-brass-500 text-white text-sm font-medium">Add</button>
+      </div>
+    </div>
+
+    <div class="flex justify-end">
+      <button id="saveSettingsBtn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-brass-500 to-gold-600 text-white font-semibold shadow-glass">Save Settings</button>
+    </div>
+
+    <div class="bg-white/70 dark:bg-ink-800/60 backdrop-blur rounded-2xl shadow-glass border border-brass-300/20 p-6 space-y-4">
+      <h3 class="font-display font-bold text-lg text-ink-800 dark:text-brass-200">Import / Export</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <button id="exportProductsBtn" class="px-4 py-2.5 rounded-xl bg-brass-100 dark:bg-ink-700 text-sm font-medium">Export Products</button>
+        <button id="exportSalesBtn" class="px-4 py-2.5 rounded-xl bg-brass-100 dark:bg-ink-700 text-sm font-medium">Export Sales</button>
+        <button id="backupBtn" class="px-4 py-2.5 rounded-xl bg-brass-100 dark:bg-ink-700 text-sm font-medium">Backup Full System</button>
+        <label class="px-4 py-2.5 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-sm font-medium text-center cursor-pointer">
+          Import Products <input id="importProductsFile" type="file" accept=".json" class="hidden">
+        </label>
+        <label class="px-4 py-2.5 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-sm font-medium text-center cursor-pointer">
+          Restore Backup <input id="restoreBackupFile" type="file" accept=".json" class="hidden">
+        </label>
+        <button id="resetAllBtn" class="px-4 py-2.5 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 text-sm font-medium">Reset Everything</button>
+      </div>
+    </div>
+  `;
+
+  function settingsField(id, label, value, type='text'){
+    return `<div><label class="block text-xs font-medium text-ink-500 dark:text-gold-200/70 mb-1">${label}</label>
+      <input id="${id}" type="${type}" value="${Utils.escapeHtml(String(value??''))}" class="w-full px-3 py-2 rounded-lg border border-brass-300/40 bg-white/80 dark:bg-ink-700 dark:text-gold-50 focus:outline-none focus:ring-2 focus:ring-brass-400"></div>`;
+  }
+
+  function renderCategories(){
+    const cats = loadCategories();
+    wrap.querySelector('#categoryList').innerHTML = cats.map(c=>`
+      <span class="px-3 py-1.5 rounded-full bg-brass-100 dark:bg-ink-700 text-sm flex items-center gap-2">${Utils.escapeHtml(c)}
+        <button data-rmcat="${Utils.escapeHtml(c)}" class="text-red-500 hover:text-red-700 text-xs">✕</button>
+      </span>`).join('');
+    wrap.querySelectorAll('[data-rmcat]').forEach(b=> b.onclick = ()=>{
+      saveCategories(loadCategories().filter(c=>c!==b.dataset.rmcat));
+      renderCategories();
+    });
+  }
+  renderCategories();
+
+  wrap.querySelector('#addCategoryBtn').onclick = ()=>{
+    const input = wrap.querySelector('#newCategoryInput');
+    const val = input.value.trim();
+    if(!val) return;
+    const cats = loadCategories();
+    if(cats.includes(val)){ Toast.show('Category already exists.', 'error'); return; }
+    cats.push(val);
+    saveCategories(cats);
+    input.value = '';
+    renderCategories();
+    Toast.show('Category added.');
+  };
+
+  let newLogoData = s.logo;
+  wrap.querySelector('#s_logo').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ newLogoData = reader.result; wrap.querySelector('#logoPreview').innerHTML = `<img src="${newLogoData}" class="w-full h-full object-cover">`; };
+    reader.readAsDataURL(file);
+  });
+
+  wrap.querySelector('#saveSettingsBtn').onclick = ()=>{
+    const updated = {
+      ...s,
+      companyName: wrap.querySelector('#s_companyName').value.trim() || DEFAULT_SETTINGS.companyName,
+      address: wrap.querySelector('#s_address').value.trim(),
+      phone: wrap.querySelector('#s_phone').value.trim(),
+      cashierName: wrap.querySelector('#s_cashierName').value.trim(),
+      currencySymbol: wrap.querySelector('#s_currency').value.trim() || 'Rs',
+      secondaryCurrencySymbol: wrap.querySelector('#s_secondaryCurrency').value.trim(),
+      taxPercent: parseFloat(wrap.querySelector('#s_tax').value) || 0,
+      invoicePrefix: wrap.querySelector('#s_invoicePrefix').value.trim() || 'INV-',
+      receiptSize: wrap.querySelector('#s_receiptSize').value,
+      footerLine1: wrap.querySelector('#s_footer1').value.trim(),
+      footerLine2: wrap.querySelector('#s_footer2').value.trim(),
+      logo: newLogoData
+    };
+    saveSettings(updated);
+    Toast.show('Settings saved.');
+    applyBranding();
+  };
+
+  wrap.querySelector('#exportProductsBtn').onclick = ()=> downloadJSON(loadProducts(), 'products.json');
+  wrap.querySelector('#exportSalesBtn').onclick = ()=> downloadJSON(loadSales(), 'sales.json');
+  wrap.querySelector('#backupBtn').onclick = ()=> downloadJSON({
+    companySettings: loadSettings(), products: loadProducts(), categories: loadCategories(),
+    sales: loadSales(), invoiceCounter: peekInvoiceCounter()
+  }, `nuwan-hardware-backup-${new Date().toISOString().slice(0,10)}.json`);
+
+  wrap.querySelector('#importProductsFile').addEventListener('change', (e)=>{
+    readJSONFile(e.target.files[0], (data)=>{
+      if(!Array.isArray(data)){ Toast.show('Invalid products file.', 'error'); return; }
+      saveProducts(data);
+      Toast.show('Products imported.');
+    });
+  });
+
+  wrap.querySelector('#restoreBackupFile').addEventListener('change', (e)=>{
+    readJSONFile(e.target.files[0], (data)=>{
+      Modal.confirm('Restore this backup? Current data will be overwritten.', ()=>{
+        if(data.companySettings) DB.set(DB.keys.settings, data.companySettings);
+        if(data.products) DB.set(DB.keys.products, data.products);
+        if(data.categories) DB.set(DB.keys.categories, data.categories);
+        if(data.sales) DB.set(DB.keys.sales, data.sales);
+        if(typeof data.invoiceCounter === 'number') DB.set(DB.keys.invoiceCounter, data.invoiceCounter);
+        Toast.show('Backup restored. Reloading...');
+        setTimeout(()=>location.reload(), 800);
+      });
+    });
+  });
+
+  wrap.querySelector('#resetAllBtn').onclick = ()=>{
+    Modal.confirm('This will permanently erase ALL data (products, sales, settings). Continue?', ()=>{
+      localStorage.clear();
+      Toast.show('All data reset. Reloading...');
+      setTimeout(()=>location.reload(), 800);
+    });
+  };
+
+  return wrap;
+};
+
+function downloadJSON(data, filename){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  Toast.show('Export downloaded.');
+}
+function readJSONFile(file, cb){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{ cb(JSON.parse(reader.result)); }
+    catch(e){ Toast.show('Could not read file — invalid JSON.', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+/* =====================================================================================
+   THEME
+   ===================================================================================== */
+function applyTheme(){
+  const mode = DB.get(DB.keys.theme, 'light');
+  document.documentElement.classList.toggle('dark', mode === 'dark');
+}
+function toggleTheme(){
+  const mode = DB.get(DB.keys.theme, 'light');
+  DB.set(DB.keys.theme, mode === 'dark' ? 'light' : 'dark');
+  applyTheme();
+}
+document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+document.getElementById('themeToggleBtnMobile').addEventListener('click', toggleTheme);
+
+function applyBranding(){
+  const s = loadSettings();
+  document.getElementById('sidebarCompanyName').textContent = s.companyName;
+  document.getElementById('sidebarLogo').innerHTML = s.logo ? `<img src="${s.logo}" class="w-full h-full object-cover rounded-2xl">` : (s.companyName||'N').charAt(0).toUpperCase();
+}
+
+/* =====================================================================================
+   CLOCK
+   ===================================================================================== */
+function tickClock(){
+  const el = document.getElementById('clockDisplay');
+  if(el) el.textContent = new Date().toLocaleString('en-GB',{weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+setInterval(tickClock, 1000);
+
+/* =====================================================================================
+   KEYBOARD SHORTCUTS
+   ===================================================================================== */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'F2' && State.currentView === 'pos'){
+    e.preventDefault();
+    document.getElementById('completeSaleBtn')?.click();
+  }
+  if(e.key === 'F1'){ e.preventDefault(); navigate('pos'); }
+  if(e.key === 'Escape'){ Modal.close(); }
+});
+
+/* =====================================================================================
+   INIT
+   ===================================================================================== */
+(function init(){
+  // Seed defaults on first run
+  if(!localStorage.getItem(DB.keys.settings)) saveSettings(DEFAULT_SETTINGS);
+  if(!localStorage.getItem(DB.keys.categories)) saveCategories(['General','Tools','Electrical','Plumbing','Paint','Hardware']);
+  if(!localStorage.getItem(DB.keys.products)) saveProducts([]);
+  if(!localStorage.getItem(DB.keys.sales)) saveSales([]);
+
+  applyTheme();
+  applyBranding();
+  tickClock();
+  navigate('dashboard');
+})();
+</script>
+</body>
+</html>
